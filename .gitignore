@@ -7,3 +7,20 @@ __pycache__
 output
 eval.ipynb
 datasets.tar.gz
+# --- added for GAT-GPO-VAE release ---
+logs/
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+.redun/
+*.tar.gz
+*.ckpt
+*.h5ad
+*.npy
+.gitignore.orig
+*.bak_dualfor
+eval_backup2.py
+eval_before_fix.py
+*.py.v3
+*.py.v4
+*_orig.py
+*.mychanges

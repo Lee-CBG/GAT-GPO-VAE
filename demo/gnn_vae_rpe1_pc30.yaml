@@ -1,0 +1,61 @@
+# Experiment hyperparameters
+name: gnn_vae_rpe1_seed0
+seed: 0
+max_epochs: 2000
+gradient_clip_norm: 100
+devices: [0]
+
+# WandB hyperparameters
+use_wandb: False
+wandb_kwargs.name: gnn_vae_rpe1_seed0_ot
+wandb_kwargs.project: gpo_vae_rpe1
+
+# Data module class + hyperparameters
+data_module: RPE1DataModule
+data_module_kwargs.batch_size: 512
+data_module_kwargs.data_path: ./datasets/rpe1_qc_deg_matched_ctrl_idx_all_ot.h5ad
+data_module_kwargs.qc_threshold: 3
+data_module_kwargs.stat_path: ./datasets/summary_stats.xlsx
+data_module_kwargs.get_pair_mode: ot
+data_module_kwargs.mask_test:
+
+# Model class + hyperparameters
+model: gpo_vae_Model
+model_kwargs.n_latent: 200
+model_kwargs.mask_prior: 0.3
+model_kwargs.logits_or_probs: logits
+model_kwargs.embedding_prior_scale: 1
+model_kwargs.likelihood_key: library_nb
+model_kwargs.decoder_n_layers: 1
+model_kwargs.decoder_n_hidden: 400
+model_kwargs.sum_mode: False
+
+# Guide class + hyperparameters
+guide: gpo_vae_GNNGuide
+guide_kwargs.n_latent: 200
+guide_kwargs.basal_encoder_n_layers: 1
+guide_kwargs.basal_encoder_n_hidden: 200
+guide_kwargs.embedding_encoder_n_layers: 4
+guide_kwargs.embedding_encoder_n_hidden: 400
+guide_kwargs.basal_encoder_input_normalization: log_standardize
+guide_kwargs.mean_field_encoder: False
+guide_kwargs.mask_init: 0
+guide_kwargs.logits_or_probs: logits
+guide_kwargs.knowledge_path:
+
+# Loss module class + hyperparameters
+loss_module: gpo_vae_ELBOLossModule
+loss_module_kwargs.beta: 0.1
+loss_module_kwargs.alpha:
+loss_module_kwargs.hop: 5
+loss_module_kwargs.fc_criteria: 0.5
+loss_module_kwargs.gloss_coeff: 100
+loss_module_kwargs.penaly_coeff: 30
+loss_module_kwargs.knowledge_path:
+
+# Lightning module hyperparameters
+lightning_module_kwargs.lr: 0.0003
+lightning_module_kwargs.n_particles: 5
+
+# Predictor class + hyperparameters
+predictor: gpo_vae_Predictor

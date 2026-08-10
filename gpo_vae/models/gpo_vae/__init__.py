@@ -8,3 +8,4 @@ from gpo_vae.models.gpo_vae.loss_module import (  # noqa: F401
 )
 from gpo_vae.models.gpo_vae.model import gpo_vae_Model  # noqa: F401
 from gpo_vae.models.gpo_vae.predictor import gpo_vae_Predictor  # noqa: F401
+from gpo_vae.models.gpo_vae.guides.gnn_guide import gpo_vae_GNNGuide  # noqa: F401

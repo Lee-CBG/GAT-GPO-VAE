@@ -461,7 +461,7 @@ class PerturbationPlatedPredictor(nn.Module):
     
         good_quality = torch.zeros((1, data_module.get_qc_var_info().shape[0]))
         # adata, adata_bad = self.sample_observations_data_module(data_module, n_particles, condition_values, good_quality, additional_D=False)
-        # adata = data_module.adata
+        # adata = data_module.adata[data_module.adata.obs['split'] == 'test']
         adata = data_module.adata[data_module.adata.obs['split'] == 'test']
         # self.expression_matrix = adata.X
         # self.gene_names = adata.var.index.to_list()
