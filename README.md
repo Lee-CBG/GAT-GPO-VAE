@@ -379,16 +379,32 @@ K562 or Adamson re-scores concurrently.
 
 Developed on 4× NVIDIA L40S (46 GB each), CUDA 13.0.
 
-| | Training (peak) | Evaluation (peak) |
-|---|---|---|
-| GPO-VAE | ~0.5 GB | — |
-| GAT-GPO-VAE, K562 | ~19.6 GB | ~43 GB |
+Peak **allocated** GPU memory (`torch.cuda.max_memory_allocated`), measured with
+`profile_memory.py` and `profile_eval.py`. Identical settings for both models: batch size 512
+with 5 particles in training, batch size 128 with 2500 particles at evaluation.
 
-The GAT is substantially more memory-hungry than the MLP it replaces. Two implementation choices
-dominate: the attention map is a dense `[B, n, n, H]` tensor computed over all `n²` gene pairs
-regardless of edge sparsity, and the five particles are processed sequentially rather than
-batched. Both are reducible — the learned GRN is sparse by construction, so a sparse-edge
-implementation would cut the dominant term.
+| dataset | model | params | Training | Evaluation |
+|---|---|---|---|---|
+| RPE1 (655 genes) | GPO-VAE | 8.78 M | 3.13 GB | 6.10 GB |
+| RPE1 | GAT-GPO-VAE | 8.06 M | 3.46 GB | 6.59 GB |
+| K562 (1546 genes) | GPO-VAE | 12.33 M | 4.87 GB | 16.23 GB |
+| K562 | GAT-GPO-VAE | 11.10 M | 6.70 GB | 26.29 GB |
+
+The GAT costs 1.1–1.6x the memory of the MLP it replaces, and the overhead grows with gene
+count (1.08x at 655 genes, 1.62x at 1546) because the attention map is a dense `[B, n, n, H]`
+tensor computed over all `n²` gene pairs regardless of edge sparsity, and the five particles are
+processed sequentially rather than batched. Both are reducible — the learned GRN is sparse by
+construction, so a sparse-edge implementation would cut that term.
+
+Note that both models are dominated by the `n x n` GRN parameter matrix and the shared decoder,
+not by the encoder: the MLP baseline alone needs 16 GB to evaluate 1546 genes. The GAT also has
+*fewer* parameters than the MLP it replaces, and is slightly faster at evaluation (600 s vs
+666 s on K562, 134 s vs 158 s on RPE1).
+
+**Measurement convention.** These are *allocated* figures. Peak *reserved* memory (what
+`nvidia-smi` shows, including the CUDA context and the caching allocator's unreturned blocks)
+runs 1.3–1.6x higher — 41.5 GB reserved against 26.3 GB allocated for K562 GAT evaluation. Size
+your GPUs against the reserved figure.
 
 Practical limits: one K562 evaluation per GPU. K562 with 8 attention heads requires
 `--batch_size 64` (verified to leave metrics unchanged: μWD and edge counts are bit-identical to
