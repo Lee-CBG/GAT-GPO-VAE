@@ -42,9 +42,17 @@ def evaluate_checkpoint(
     """
     Compute test set metrics for a given checkpoint.
     Evaluation follows the paper's methodology:
-    - ATE metrics over all perturbations
+    - ATE metrics over all perturbations. NOTE: the reference ATE is computed
+      from ALL cells, including those used for training, because
+      get_estimated_average_treatment_effects() is called below without a
+      `split` argument. Inherited from upstream GPO-VAE; left unchanged so that
+      published numbers reproduce. The ATE_pearsonr-{all,train,val,test} keys
+      are therefore bit-identical (the split applied here is by perturbation,
+      and every perturbation appears in every split). See README,
+      Reproducibility note 2, and rescore_ate.py for a leakage-free reference.
     - GRN metrics over G° only (perturbed genes, no self-loops)
-    - Statistical evaluation uses all cells (not just test split)
+    - Statistical evaluation (network/WD/FOR metrics) uses TEST-SPLIT cells only
+      (predictor.py ~L465)
     """
     lightning_module = load_checkpoint(checkpoint_path, devices)
     data_module = lightning_module.get_data_module()

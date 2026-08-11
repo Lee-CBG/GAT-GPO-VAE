@@ -299,7 +299,9 @@ These are the traps that cost us the most time. Please read before reporting a m
 `gpo_vae/models/utils/predictor.py`:
 
 ```python
-# MUST be test-split only. Using all cells inflates ATE.
+# MUST be test-split only. This governs the NETWORK statistical evaluation
+# (per-edge Wasserstein distance and FOR), NOT ATE — see note 2 below.
+# Using all cells here inflates the GRN metrics.
 adata = data_module.adata[data_module.adata.obs["split"] == "test"]
 
 # MUST be 'FC3'. Using 'highly_variable' runs the network statistical
@@ -310,20 +312,66 @@ criteria = 'FC3'
 Both match the upstream original. Under this harness our GPO-VAE reproduction recovers the
 published baseline on μWD, FOR and edge count across all three datasets.
 
-**2. GRN metrics are `G°`-restricted.** μWD, FOR and edge counts are computed on the perturbed
+**2. The ATE reference is computed from all cells, and this is not fixed here.**
+`eval.py` (~L66) calls `get_estimated_average_treatment_effects()` with no `split` argument, so
+the reference average treatment effect every model is scored against is built from all cells —
+including the 64% used for training. The `split` parameter exists on that method but is never
+passed. Consequently the `ATE_pearsonr-all`, `-train`, `-val` and `-test` keys in
+`test_metrics.csv` are **bit-identical**: the split applied at `eval.py` (~L89) is by
+*perturbation*, and every perturbation appears in every split, so all four are the same number
+under four names.
+
+This is inherited from the upstream GPO-VAE benchmark and affects every published number on it
+equally, ours and the baseline's. **We have deliberately not changed it**, because the code as-is
+is what reproduces the published values. To score against a leakage-free reference, use
+`rescore_ate.py`, which reports both.
+
+**3. GRN metrics are `G°`-restricted.** μWD, FOR and edge counts are computed on the perturbed
 block only (`adj_matrix[:pert_gene_len, :pert_gene_len]`, self-loops removed), for comparability
 with causal-discovery baselines. The full-matrix count is reported separately as
 `num_edges_full`. The `G⁺` block is saturated (~800k edges > 0.5) in **both** models and is not
 a meaningful quality signal.
 
-**3. μWD is `positive_mean_wasserstein`.** `output_graph['wasserstein_distance']['mean']`.
+**4. μWD is `positive_mean_wasserstein`.** `output_graph['wasserstein_distance']['mean']`.
 `negative_mean_wasserstein` is a different quantity.
 
-**4. Lightning directory auto-increment.** Re-running a config whose `name` already exists
+**5. Lightning directory auto-increment.** Re-running a config whose `name` already exists
 creates `<name>-2`, `<name>-3`, etc. rather than overwriting. Verify you are evaluating the run
 you think you are; `grn.csv` should have 1547 columns for K562 (1546 genes + index).
 
-**5. Run eval with `WANDB_MODE=disabled`** unless you have configured wandb.
+**6. Run eval with `WANDB_MODE=disabled`** unless you have configured wandb.
+
+---
+
+## Leakage-free re-scoring and non-parametric baselines
+
+These three scripts support the evaluation analysis in our author response. They require no
+retraining — the model ATE is a deterministic function of the checkpoint.
+
+```bash
+python rescore_ate.py <run_dir> [n_particles]   # default 2500
+python linear_baselines.py <rpe1|k562|adamson>
+python reliability_check.py <rpe1|k562|adamson>
+```
+
+- **`rescore_ate.py`** regenerates the model ATE from a checkpoint and scores it against *both*
+  the all-cells reference (which reproduces the value in that run's `test_metrics.csv`, and so
+  doubles as a correctness check) and a test-cells-only reference. Always confirm the all-cells
+  block matches before trusting the test-only block.
+- **`linear_baselines.py`** scores two non-parametric predictors against the test-cells-only
+  reference: a per-perturbation mean over training cells, and a global training mean. Writes
+  `linear_baselines_<dataset>.json`.
+- **`reliability_check.py`** estimates the measurement ceiling by splitting the training cells in
+  half and scoring one half's estimated effects against the other, plus test-vs-val and
+  test-vs-train comparisons.
+
+All three use the `perturbseq` scale (normalize to 1e4 UMI, `log2(x+1)`, *then* difference
+against the control mean) — the same scale `eval.py --perturbseq` uses. The `mean` scale
+differences raw counts instead and gives substantially different values.
+
+**Resource note.** These materialize the full expression matrix in float64 and need roughly
+33 GB of host RAM per process (plus ~1.4 GB GPU for `rescore_ate.py`). Run at most two or three
+K562 or Adamson re-scores concurrently.
 
 ---
 
