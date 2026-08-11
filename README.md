@@ -131,9 +131,32 @@ perturbations removed (DEGs > 50 by Anderson–Darling, knockdown efficiency ≤
 cells filtered by perturbation effect, perturbations with < 100 cells dropped. Quality-control
 labels follow CRADLE-VAE's six criteria.
 
-**Split.** Cell-level random 80/16/4 train/val/test, following GPO-VAE and CRADLE-VAE. All
-perturbations appear in all splits — this benchmark measures per-perturbation average treatment
-effect estimation on held-out **cells**, not zero-shot generalization to unseen perturbations.
+**Split.** Cell-level 64/16/20 train/val/test, following GPO-VAE and CRADLE-VAE. It is produced
+by two nested calls in `gpo_vae/data/<dataset>/data_module.py` (identical in all three datasets):
+
+```python
+train_idx, test_idx = train_test_split(idx, train_size=0.8, random_state=0)       # 80 / 20
+train_idx, val_idx  = train_test_split(train_idx, train_size=0.8, random_state=0) # 64 / 16
+```
+
+The second call re-splits **train**, not test, so train = 0.8 x 0.8 = 64%, val = 0.8 x 0.2 = 16%,
+test = 20%. `random_state=0` is fixed and the assignment is written to `adata.obs["split"]` in the
+preprocessed `.h5ad`, so **the split is identical across every seed, model and run in this
+repository**; seeds vary model initialization only.
+
+| dataset | train | val | test |
+|---|---|---|---|
+| RPE1 | 58,809 | 14,703 | 18,379 |
+| K562 | 82,865 | 20,717 | 25,896 |
+| Adamson | 29,590 | 7,398 | 9,248 |
+
+All perturbations appear in all splits (RPE1: 384/384 with cells in each) — this benchmark
+measures per-perturbation average treatment effect estimation on held-out **cells**, not
+zero-shot generalization to unseen perturbations.
+
+> *Correction:* an earlier version of this README gave the split as 80/16/4. That was a
+> documentation error — the second `train_test_split` was misread as partitioning the test set
+> rather than the training set. No data, split, or result changed.
 
 ---
 
