@@ -166,7 +166,7 @@ Training entry points are per-dataset:
 
 ```bash
 # RPE1
-CUDA_VISIBLE_DEVICES=0 python train_rpe1.py --config ./demo/gnn_v4_rpe1_pc15_seed1.yaml
+CUDA_VISIBLE_DEVICES=0 python train_rpe1.py --config ./demo/gnn_v4sweep_rpe1_pc15_seed0.yaml
 
 # K562
 CUDA_VISIBLE_DEVICES=0 python train_replogle.py --config ./demo/gnn_v4sweep_k562_pc7_seed0.yaml
@@ -179,7 +179,7 @@ Evaluation:
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 WANDB_MODE=disabled python eval.py \
-    --experiment_path results/gnn_v4_rpe1_pc15_seed1 \
+    --experiment_path results/gnn_v4sweep_rpe1_pc15_seed0 \
     --perturbseq \
     --batch_size 128 \
     --ate_n_particles 2500 \
@@ -198,7 +198,7 @@ Final operating points are RPE1 `penaly_coeff=15`, K562 `penaly_coeff=7`, Adamso
 
 | Paper element | Configs / scripts |
 |---|---|
-| Main comparison | `demo/gnn_v4_rpe1_pc15_seed{1-4}.yaml`, `demo/gnn_v4sweep_k562_pc7_seed{0-4}.yaml`, `demo/gnn_v4_adamson_pc0p5_seed{0-4}.yaml`; baselines `demo/gpo_vae_{rpe1,replogle,adamson_pc1}_seed{0-4}.yaml`; `run_all_evals.sh`, `aggregate_results.py` |
+| Main comparison | `demo/gnn_v4sweep_rpe1_pc15_seed{0,1,2}.yaml` + `demo/gnn_v4_rpe1_pc15_seed{3,4}.yaml`, `demo/gnn_v4sweep_k562_pc7_seed{0-4}.yaml`, `demo/gnn_v4_adamson_pc0p5_seed{0-4}.yaml`; baselines `demo/gpo_vae_{rpe1,replogle,adamson_pc1}_seed{0-4}.yaml`; `run_all_evals.sh`, `aggregate_results.py` |
 | Detachment ablation | `demo/gnn_v3_*_seed{0-4}.yaml` (no-detach variant), `aggregate_v3.py` |
 | Architecture ablation | `demo/gnn_arch_<ds>_<L1\|L3\|H2\|H8\|D128\|D512\|drop0p1\|drop0p3>_seed{0-2}.yaml`; `run_arch_sweep.sh`, `run_arch_eval.sh`, `aggregate_arch.py` |
 | Sparsity-coefficient selection | `demo/gnn_v4sweep_<ds>_pc<X>_seed<N>.yaml`; `run_v4sweep.sh`, `run_v4sweep_eval.sh`, `aggregate_v4sweep.py`, `aggregate_5seed.py` |
@@ -208,6 +208,9 @@ Final operating points are RPE1 `penaly_coeff=15`, K562 `penaly_coeff=7`, Adamso
 > Note on config naming: `gnn_v4*` = the detached model reported in the paper; `gnn_v3*` = the
 > no-detach ablation; `gnn_vae_*` are earlier runs retained for provenance and are **not** the
 > paper's configuration.
+> The five reported RPE1 seeds come from two run families: `gnn_v4sweep_*` supplies seeds 0–2
+> and `gnn_v4_*` supplies seeds 3–4, as neither family contains all five. Both use identical
+> configurations and the same detached encoder.
 
 ---
 
