@@ -480,12 +480,16 @@ Please cite the base method:
 
 ```bibtex
 @article{gpovae2025,
-  title   = {{GPO-VAE}: Modeling Explainable Gene Perturbation Responses
-             utilizing GRN-Aligned Parameter Optimization},
+  title   = {{GPO-VAE}: modeling explainable gene perturbation responses
+             utilizing {GRN}-aligned parameter optimization},
   author  = {Baek, Seungheun and Park, Soyon and Chok, Yan Ting and
              Gim, Mogan and Kang, Jaewoo},
-  journal = {arXiv preprint arXiv:2501.18973},
-  year    = {2025}
+  journal = {Bioinformatics},
+  volume  = {41},
+  number  = {Supplement\_1},
+  pages   = {i599--i608},
+  year    = {2025},
+  doi     = {10.1093/bioinformatics/btaf256}
 }
 ```
 
