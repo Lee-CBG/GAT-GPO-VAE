@@ -211,6 +211,37 @@ Final operating points are RPE1 `penaly_coeff=15`, K562 `penaly_coeff=7`, Adamso
 
 ---
 
+## STRING PPI validation
+
+`string_inputs/` contains the gene sets used for the protein–protein interaction
+check reported in Section 4.4, Table 3, and Appendix Figure 5. One file per
+convergence subnetwork.
+
+STRING was queried through the web interface rather than scripted, so these files
+are the exact inputs and the results can be re-derived without running our code:
+
+1. https://string-db.org → Search → Multiple proteins
+2. Paste the contents of one `subnetNN_ANCHOR.txt`
+3. Organism: Homo sapiens
+4. Settings: default (minimum interaction score 0.400, all active sources)
+5. Read the PPI enrichment p-value from the Analysis tab
+
+STRING version: <FILL IN> · queried <MONTH YEAR>
+
+`subnet_summary.csv` gives, for all 16 subnetworks: anchor, parent count, median
+edge Wasserstein distance, candidate pathway annotation, STRING PPI enrichment
+p-value, average node degree, and our verdict.
+
+**Scope notes.** Anchor genes are extended-gene (G+) nodes and are frequently
+non-coding; the PPI test asks whether the converging perturbed genes are coherent
+with each other. STRING uses its default whole-genome background — the custom
+background of the 622 perturbed genes applies to the KEGG/Reactome pathway
+enrichment only (`enrich_subnets_bg.py`), where the panel's enrichment for
+essential genes would otherwise inflate significance.
+
+Thirteen of sixteen subnetworks reach p < 0.01. The three that do not (CCNJ,
+ZNF32, PHF10) are reported in the paper and flagged as likely artifacts.
+
 ## Configuration reference
 
 Shared hyperparameters (retained from GPO-VAE, unchanged):
