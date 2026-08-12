@@ -237,6 +237,8 @@ background of the 622 perturbed genes applies to the KEGG/Reactome pathway
 enrichment only (`enrich_subnets_bg.py`), where the panel's enrichment for
 essential genes would otherwise inflate significance.
 
+Gene symbols follow the dataset's original annotation; STRING resolves legacy symbols automatically (e.g. RARS → RARS1).
+
 Thirteen of sixteen subnetworks reach p < 0.01. The three that do not (CCNJ,
 ZNF32, PHF10) are reported in the paper and flagged as likely artifacts.
 
