@@ -21,22 +21,91 @@ over `σ(Ŵ)`, so a gene's perturbation embedding is formed from its regulatory 
 The edge weights entering the GAT are **detached** (stop-gradient), which keeps GRN learning
 bit-for-bit identical to GPO-VAE while the GAT still exploits the graph in its forward pass.
 
-Across three Perturb-seq datasets over five seeds:
+Across three Perturb-seq datasets over five seeds, under the evaluation protocol inherited from
+GPO-VAE:
 
 | Dataset | Metric | GPO-VAE (reproduced) | GAT-GPO-VAE |
 |---|---|---|---|
 | RPE1 | ATE-ρ | 0.701 ± 0.018 | **0.725 ± 0.008** |
-| | μWD | 0.283 ± 0.020 | **0.321 ± 0.013** |
-| | FOR | 0.046 ± 0.006 | **0.038 ± 0.005** |
+| | μWD | 0.283 ± 0.020 | 0.321 ± 0.013 |
+| | FOR | 0.046 ± 0.006 | 0.038 ± 0.005 |
 | K562 | ATE-ρ | 0.780 ± 0.009 | **0.797 ± 0.004** |
-| | μWD | 0.245 ± 0.010 | **0.284 ± 0.013** |
+| | μWD | 0.245 ± 0.010 | 0.284 ± 0.013 |
 | | FOR | 0.021 ± 0.006 | 0.021 ± 0.005 |
 | Adamson | ATE-ρ | 0.860 ± 0.008 | 0.856 ± 0.006 (tie) |
-| | μWD | 0.152 ± 0.011 | **0.219 ± 0.017** |
+| | μWD | 0.152 ± 0.011 | 0.219 ± 0.017 |
 | | FOR | 0.010 ± 0.007 | 0.011 ± 0.004 |
 
-μWD ↑ = mean Wasserstein distance over predicted edges; FOR ↓ = false omission rate. Both are
-computed on the perturbed block `G°` only. Full baseline tables are in the paper.
+ATE-ρ ↑ = Pearson correlation between predicted and measured average treatment effects.
+μWD ↑ = mean Wasserstein distance over predicted edges; FOR ↓ = false omission rate. Both GRN
+metrics are computed on the perturbed block `G°` only. Full baseline tables are in the paper.
+
+> **The μWD column is not evidence of GRN quality, and we no longer claim it is.** μWD evaluated
+> at each model's own operating point is close to a monotone decreasing function of edge count, so
+> a method can improve it by inferring fewer edges. At matched edge count the advantage
+> disappears. See [Evaluation findings](#evaluation-findings) — this correction, and two others,
+> came out of peer review and are described there in full.
+
+---
+
+## Evaluation findings
+
+Three properties of this benchmark family surfaced while preparing our author response. All three
+concern the evaluation, not the architecture, and none was introduced by this fork. They are
+recorded here because the numbers above cannot be read correctly without them.
+
+**1. μWD tracks edge count, not architecture.** Ranking all candidate edges by predicted
+probability and averaging WD over the top K, with the same K for both models:
+
+| K | RPE1 GAT | RPE1 GPO-VAE | K562 GAT | K562 GPO-VAE |
+|---|---|---|---|---|
+| 500 | 0.501 | 0.501 | 0.395 | **0.425** |
+| 1000 | 0.380 | 0.378 | 0.320 | **0.335** |
+| 1500 | 0.323 | 0.323 | 0.285 | **0.296** |
+| 2000 | 0.292 | 0.290 | 0.263 | **0.271** |
+| 2500 | 0.271 | 0.268 | 0.249 | **0.255** |
+| 3000 | 0.254 | 0.251 | 0.238 | **0.242** |
+
+Seed standard deviations are 0.002–0.011. RPE1 is indistinguishable at every K; K562 favors the
+baseline at every K. Extending this to a frontier over 43 trained runs spanning 536–4,279 edges,
+the mean difference against the baseline's curve at matched edge count is −0.0001 on RPE1 (10 of
+21 runs above) and −0.0092 on K562 (4 of 17). Our no-detachment ablation — including the seed that
+diverges to 10,971 edges — lies on the same curve. Three architectures, one curve. Our operating
+points use larger sparsity penalties than the baseline's (15 vs 10 on RPE1, 7 vs 5 on K562), which
+is what produces the apparent gap. Both models rank far above chance, so the signal is real; it is
+just not architecture-dependent. Reproduce with `matched_k_mu_wd.py` and `mu_wd_frontier.py`.
+
+**2. The ATE reference is not held out.** See [Reproducibility note 2](#reproducibility-notes)
+for the mechanism and its provenance. Re-scored against a test-cells-only reference over five
+seeds with an exact paired permutation test, the architectural comparison is unchanged in
+direction and significance:
+
+| dataset | GAT-GPO-VAE | GPO-VAE | seeds won | p |
+|---|---|---|---|---|
+| RPE1 | **0.558 ± 0.006** | 0.540 ± 0.013 | 5/5 | 0.031 |
+| K562 | **0.609 ± 0.004** | 0.596 ± 0.006 | 5/5 | 0.031 |
+| Adamson | 0.743 ± 0.002 | 0.747 ± 0.007 | 2/5 | 0.84 |
+
+`p = 0.031` is the smallest value attainable at n = 5. The held-out reference deflates both models
+by 0.11–0.19 but preserves the ordering and the Adamson tie.
+
+**3. A non-parametric baseline saturates the metric.** Against the same held-out reference:
+
+| dataset | per-perturbation train mean | reliability ceiling | test vs val | global train mean | GAT-GPO-VAE |
+|---|---|---|---|---|---|
+| RPE1 | 0.658 | 0.661 | 0.515 | 0.351 | 0.558 |
+| K562 | 0.644 | 0.647 | 0.494 | 0.319 | 0.609 |
+| Adamson | 0.814 | 0.818 | 0.707 | 0.476 | 0.743 |
+
+The reliability ceiling is one half of the training cells scored against the other half — two
+independent measurements of the same effects, no model involved. The per-perturbation mean lands
+on it. It is not modeling anything; it is direct measurement, and on this benchmark direct
+measurement is not beaten by either deep model. The global train mean is far below everything, so
+this reflects perturbation-specific signal rather than a metric artifact. Reproduce with
+`linear_baselines.py` and `reliability_check.py`.
+
+None of this affects the controlled GAT-vs-MLP comparison, which is verified under both
+references. It bounds what that comparison means.
 
 ---
 
@@ -66,9 +135,19 @@ edge_weight = torch.sigmoid(q_mask_logits).detach()   # detached (default, paper
 # edge_weight = torch.sigmoid(q_mask_logits)          # no detach (ablation)
 ```
 
-Without the `.detach()`, reconstruction gradients reach `Ŵ` through the attention mechanism and
-GRN inference becomes seed-unstable — on RPE1 the edge count goes to 3687 ± 4084, a standard
-deviation larger than the mean. Toggle these two lines to reproduce the ablation in the paper.
+The stop-gradient blocks only the gradient flowing back into `Ŵ` along the attention path.
+Message passing is untouched: every embedding is still formed from the gene's regulatory
+neighborhood, and the GAT's own projections and attention vectors train normally on
+reconstruction. What detachment removes is the model's ability to reshape the causal graph to
+suit its own message passing.
+
+**The resulting instability is dataset-specific, and we state it narrowly.** On RPE1, no-detach
+gives an edge count of 3687 ± 4084 over five seeds — but that spread is driven by a single seed
+that diverges to 10,971 edges (ATE-ρ 0.378). Excluding it, no-detach reaches 0.711 ± 0.018
+against 0.725 ± 0.009 for the detached model: roughly twice the variance, not sixteen times. On
+K562 there is no instability at all. We characterize this as a tail-risk failure mode on smaller,
+sparser graphs rather than a general property, and we do not claim it transfers automatically to
+other settings. Toggle the two lines above to reproduce the ablation.
 
 ---
 
@@ -202,6 +281,8 @@ Final operating points are RPE1 `penaly_coeff=15`, K562 `penaly_coeff=7`, Adamso
 | Detachment ablation | `demo/gnn_v3_*_seed{0-4}.yaml` (no-detach variant), `aggregate_v3.py` |
 | Architecture ablation | `demo/gnn_arch_<ds>_<L1\|L3\|H2\|H8\|D128\|D512\|drop0p1\|drop0p3>_seed{0-2}.yaml`; `run_arch_sweep.sh`, `run_arch_eval.sh`, `aggregate_arch.py` |
 | Sparsity-coefficient selection | `demo/gnn_v4sweep_<ds>_pc<X>_seed<N>.yaml`; `run_v4sweep.sh`, `run_v4sweep_eval.sh`, `aggregate_v4sweep.py`, `aggregate_5seed.py` |
+| Matched-K μWD and frontier | `matched_k_mu_wd.py`, `mu_wd_frontier.py` |
+| Held-out re-scoring and baselines | `rescore_ate.py`, `linear_baselines.py`, `reliability_check.py` |
 | Directed-bridge collapse | `directed_bridge_sweep.py` |
 | Biological modules | See [Biological analysis](#biological-analysis) |
 
@@ -210,7 +291,10 @@ Final operating points are RPE1 `penaly_coeff=15`, K562 `penaly_coeff=7`, Adamso
 > paper's configuration.
 > The five reported RPE1 seeds come from two run families: `gnn_v4sweep_*` supplies seeds 0–2
 > and `gnn_v4_*` supplies seeds 3–4, as neither family contains all five. Both use identical
-> configurations and the same detached encoder.
+> configurations and the same detached encoder. The two families were trained four days apart;
+> seeds present in both differ by ≈0.018 in ATE-ρ despite identical YAML and identical
+> `pl.seed_everything()` calls, so a fresh reproduction from this tree will match seeds 0–2 and
+> may not match seeds 3–4 exactly. Reported means use one run per seed.
 
 ---
 
@@ -284,6 +368,10 @@ Sparsity coefficient — the **only** per-dataset hyperparameter we select:
 > The YAML key is spelled `penaly_coeff` (sic), inherited from the upstream codebase and
 > preserved for config compatibility.
 
+> Because μWD depends strongly on edge count (see [Evaluation findings](#evaluation-findings)),
+> the fact that our operating points are sparser than the baseline's is not incidental — it is
+> what produces the μWD difference in the headline table. Compare at matched K.
+
 ---
 
 ## Biological analysis
@@ -320,8 +408,16 @@ API failures are not silently counted as non-significant.
 content, not by anchor identity — anchors are frequently non-coding and unstable across seeds.
 Subnetworks with no significant non-flagged term are reported but not annotated.
 
+**Threshold sensitivity.** Sweeping probability {0.60, 0.65, 0.70} × WD {0.2, 0.3, 0.4} ×
+parent range over five K562 seeds shows the WD and parent-count criteria are non-binding at the
+reported operating point: every edge above probability 0.6 already carries WD > 0.4, and every
+retained anchor already has three or more parents. What is described as a triple criterion is in
+effect a single one, edge probability. Subnetwork counts are threshold-sensitive (17.2, 9.2, 3.4
+across the grid), but all five programs recover in all five seeds at 0.6. Programs, not anchors,
+are the reproducible unit. Run `threshold_sweep.py`.
+
 Related scripts: `subnetworks.py` and `subnetworks_g0.py` implement earlier and `G°`-only
-variants of the subnetwork definition; `threshold_sweep.py` varies the convergence thresholds.
+variants of the subnetwork definition.
 
 ---
 
@@ -346,19 +442,70 @@ criteria = 'FC3'
 Both match the upstream original. Under this harness our GPO-VAE reproduction recovers the
 published baseline on μWD, FOR and edge count across all three datasets.
 
-**2. The ATE reference is computed from all cells, and this is not fixed here.**
-`eval.py` (~L66) calls `get_estimated_average_treatment_effects()` with no `split` argument, so
-the reference average treatment effect every model is scored against is built from all cells —
-including the 64% used for training. The `split` parameter exists on that method but is never
-passed. Consequently the `ATE_pearsonr-all`, `-train`, `-val` and `-test` keys in
-`test_metrics.csv` are **bit-identical**: the split applied at `eval.py` (~L89) is by
-*perturbation*, and every perturbation appears in every split, so all four are the same number
-under four names.
+**2. The ATE reference is computed from all cells, and this is not changed here.**
 
-This is inherited from the upstream GPO-VAE benchmark and affects every published number on it
-equally, ours and the baseline's. **We have deliberately not changed it**, because the code as-is
-is what reproduces the published values. To score against a leakage-free reference, use
-`rescore_ate.py`, which reports both.
+`eval.py` calls `get_estimated_average_treatment_effects()` without a `split` argument, so the
+reference average treatment effect every model is scored against is built from all cells —
+including the 64% used for training. The reference is therefore not held out.
+
+The `split` parameter is not an oversight in one file. It is declared on the abstract base class
+(`gpo_vae/data/utils/perturbation_datamodule.py`) and implemented in all three concrete data
+modules, where it applies a cell-level filter before the effect is estimated:
+
+```python
+if split is not None:
+    adata = adata[adata.obs["split"] == split]
+```
+
+`eval.py` is the only call site for this method in the repository, and it does not pass it.
+
+Relatedly, the `ATE_pearsonr-all`, `-train`, `-val` and `-test` keys in `test_metrics.csv` are
+**bit-identical**. The loop that produces them (`for split in ["train", "val", "test"]`) selects
+*perturbations*: it asks, for each perturbation, whether that perturbation appears in the given
+split. Splits here are assigned by a random `train_test_split` over cell indices, so every
+perturbation appears in all three and the filter removes nothing. Four names, one number.
+
+**Where this comes from, and why it is reasonable code.** This evaluation path is inherited from
+[CRADLE-VAE](https://github.com/dmis-lab/CRADLE-VAE), which shares it with GPO-VAE unchanged.
+CRADLE-VAE also evaluates Norman and Dixit, and those datasets are split by a **perturbation-level
+holdout** rather than at the cell level — `_get_split_labels` shuffles the combination guide
+identities and assigns disjoint sets to train and test:
+
+```python
+train_combos = combo_guide_identities[:num_train_combos]
+test_combos  = combo_guide_identities[-num_test_combos:]
+```
+
+Under that design the code is correct. A held-out combination's cells lie entirely within the test
+split, so its reference effect is built from held-out data whether or not `split` is passed;
+passing it would only shrink the cell count, and therefore the precision, for the seen
+perturbations. The per-split ATE keys are likewise meaningful there, because a held-out
+combination's row in `intervention_info` really is `(train=False, val=False, test=True)`.
+
+What does not carry over is the assumption. GPO-VAE retains Adamson and Replogle, which use random
+cell-level splits, and drops the two datasets where the perturbation-level machinery was doing
+work. Nothing in the code signals the change: no assertion fires, and the only symptom is four
+equal columns in a CSV.
+
+**Why only the reference can be restricted.** The model side of this metric never reads observed
+cells. `estimate_model_average_treatment_effect` receives only one-hot perturbation dosages, a
+quality vector, `library_size=10000`, a particle count and a fixed seed; global parameters are
+drawn from the trained guide and basal states from the model's generative prior. The model ATE is
+therefore a deterministic function of the checkpoint. "Restrict the model to test cells" is not a
+meaningful operation, and re-scoring requires no retraining — but `model_ate` is not written to
+disk, so it must be regenerated per checkpoint.
+
+**Scope of the effect.** This affects every number produced by this harness, ours and the
+baseline's. Two mechanisms are involved and only one is contamination. The other is precision: the
+all-cells reference uses roughly 5× more cells per perturbation, so it estimates the true effect
+more cleanly, and any predictor scores higher against a cleaner reference. Our own numbers show
+the precision term is large — test-vs-val (both held out, no model involved) gives ρ 0.515 on RPE1
+against 0.661 for half-train-vs-half-train. We do not claim the two are separable with these data,
+and we make no claim about how the correction would reorder baselines quoted from the upstream
+paper, which we cannot run.
+
+**We have deliberately not changed the default**, because the code as-is is what reproduces the
+published values. To score against a held-out reference, use `rescore_ate.py`, which reports both.
 
 **3. GRN metrics are `G°`-restricted.** μWD, FOR and edge counts are computed on the perturbed
 block only (`adj_matrix[:pert_gene_len, :pert_gene_len]`, self-loops removed), for comparability
@@ -367,7 +514,8 @@ with causal-discovery baselines. The full-matrix count is reported separately as
 a meaningful quality signal.
 
 **4. μWD is `positive_mean_wasserstein`.** `output_graph['wasserstein_distance']['mean']`.
-`negative_mean_wasserstein` is a different quantity.
+`negative_mean_wasserstein` is a different quantity. See
+[Evaluation findings](#evaluation-findings) before interpreting it as a quality measure.
 
 **5. Lightning directory auto-increment.** Re-running a config whose `name` already exists
 creates `<name>-2`, `<name>-3`, etc. rather than overwriting. Verify you are evaluating the run
@@ -375,9 +523,15 @@ you think you are; `grn.csv` should have 1547 columns for K562 (1546 genes + ind
 
 **6. Run eval with `WANDB_MODE=disabled`** unless you have configured wandb.
 
+**7. `qc_pass` is not forwarded on the local-directory path.** `evaluate_local_experiment`
+accepts `qc_pass` but does not pass it to `evaluate_checkpoint`, while
+`evaluate_local_checkpoint` and `evaluate_wandb_experiment` both do. Local-directory evaluations
+therefore run at the default regardless of the `--qc_pass` flag. All numbers reported here were
+produced with `qc_pass=False` throughout, which is what reproduces the published baseline.
+
 ---
 
-## Leakage-free re-scoring and non-parametric baselines
+## Held-out re-scoring and non-parametric baselines
 
 These three scripts support the evaluation analysis in our author response. They require no
 retraining — the model ATE is a deterministic function of the checkpoint.
@@ -399,9 +553,14 @@ python reliability_check.py <rpe1|k562|adamson>
   half and scoring one half's estimated effects against the other, plus test-vs-val and
   test-vs-train comparisons.
 
+Results from all three are tabulated under [Evaluation findings](#evaluation-findings).
+
 All three use the `perturbseq` scale (normalize to 1e4 UMI, `log2(x+1)`, *then* difference
 against the control mean) — the same scale `eval.py --perturbseq` uses. The `mean` scale
-differences raw counts instead and gives substantially different values.
+differences raw counts instead and gives substantially different values; on the `mean` scale the
+per-perturbation baseline scores 0.850 on RPE1 against 0.658 on `perturbseq`, because a handful of
+high-expression genes carry the correlation. Always use `perturbseq` for comparisons against
+published numbers.
 
 **Resource note.** These materialize the full expression matrix in float64 and need roughly
 33 GB of host RAM per process (plus ~1.4 GB GPU for `rescore_ate.py`). Run at most two or three
@@ -459,6 +618,11 @@ Practical limits: one K562 evaluation per GPU. K562 with 8 attention heads requi
 ├── summary_stats/                          # Replogle summary statistics
 ├── train_rpe1.py / train_replogle.py / train_adamson.py
 ├── eval.py
+├── rescore_ate.py                          # held-out ATE re-scoring
+├── linear_baselines.py                     # non-parametric baselines
+├── reliability_check.py                    # measurement-ceiling estimate
+├── matched_k_mu_wd.py                      # μWD at matched edge count
+├── mu_wd_frontier.py                       # μWD-vs-edge-count frontier
 ├── extract_edge_wd.py                      # per-edge Wasserstein distances
 ├── subnetworks_v2.py                       # convergence subnetworks
 ├── enrich_subnets_bg.py                    # KEGG/Reactome ORA
@@ -466,6 +630,7 @@ Practical limits: one K562 evaluation per GPU. K562 with 8 attention heads requi
 ├── aggregate_subnets.py                    # cross-seed module recovery
 ├── directed_bridge_sweep.py                # directed-bridge collapse analysis
 ├── threshold_sweep.py                      # convergence-threshold sensitivity
+├── profile_memory.py / profile_eval.py     # memory and runtime profiling
 ├── aggregate_*.py                          # results aggregation
 └── run_*.sh                                # multi-GPU job schedulers
 ```
