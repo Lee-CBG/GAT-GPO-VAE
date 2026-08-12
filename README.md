@@ -226,8 +226,6 @@ are the exact inputs and the results can be re-derived without running our code:
 4. Settings: default (minimum interaction score 0.400, all active sources)
 5. Read the PPI enrichment p-value from the Analysis tab
 
-STRING version: <FILL IN> · queried <MONTH YEAR>
-
 `subnet_summary.csv` gives, for all 16 subnetworks: anchor, parent count, median
 edge Wasserstein distance, candidate pathway annotation, STRING PPI enrichment
 p-value, average node degree, and our verdict.
